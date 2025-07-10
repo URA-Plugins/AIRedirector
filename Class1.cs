@@ -12,13 +12,14 @@ namespace AIRedirector
     public class AIRedirector : IPlugin
     {
         public Version Version => new(1, 0, 0);
-
+        [PluginDescription("转发AI的输出到控制台")]
         public string Name => "AIRedirector";
-
         public string Author => "离披";
+        public string[] Targets => [];
+
         public async Task UpdatePlugin(ProgressContext ctx)
         {
-            var progress = ctx.AddTask($"[AIRedirector] Update");
+            var progress = ctx.AddTask($"[{Name}] 更新");
 
             using var client = new HttpClient();
             using var resp = await client.GetAsync($"https://api.github.com/repos/URA-Plugins/{Name}/releases/latest");
@@ -34,7 +35,12 @@ namespace AIRedirector
             }
             progress.Increment(25);
 
-            using var msg = await client.GetAsync(jo["assets"][0]["browser_download_url"].ToString(), HttpCompletionOption.ResponseHeadersRead);
+            var downloadUrl = jo["assets"][0]["browser_download_url"].ToString();
+            if (Config.Updater.IsGithubBlocked && !Config.Updater.ForceUseGithubToUpdate)
+            {
+                downloadUrl = downloadUrl.Replace("https://", "https://gh.shuise.dev/");
+            }
+            using var msg = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
             using var stream = await msg.Content.ReadAsStreamAsync();
             var buffer = new byte[8192];
             while (true)
@@ -87,7 +93,10 @@ namespace AIRedirector
                 {
                     if (UmamusumeResponseAnalyzer.UmamusumeResponseAnalyzer.Started && !string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine(e.Data);
+                        if (e.Data.Contains("运气指标") || e.Data.Contains("相谈"))
+                        {
+                            Console.WriteLine(e.Data);
+                        }
                     }
                 };
                 Processes.Add(ScenarioType.UAF, uaf);
