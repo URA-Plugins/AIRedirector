@@ -125,11 +125,11 @@ namespace AIRedirector
                 {
                     if (UmamusumeResponseAnalyzer.UmamusumeResponseAnalyzer.Started && !string.IsNullOrEmpty(e.Data))
                     {
-                        if (!string.IsNullOrEmpty(e.Data)
-                        || e.Data.Contains("手写逻辑")
+                        if (!string.IsNullOrEmpty(e.Data) &&
+                        e.Data.Contains("手写逻辑")
                         || e.Data.Contains("蒙特卡洛")
                         || e.Data.Contains("运气指标")
-                        || (e.Data.Contains("速: ") && e.Data.Contains("耐: ") && e.Data.Contains("力: ") && e.Data.Contains("根: ") && e.Data.Contains("智: "))
+                        || (e.Data.Contains("速:") && e.Data.Contains("| 休息:"))
                         || e.Data.Contains("先做料理"))
                         {
                             Console.WriteLine(e.Data);
