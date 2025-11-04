@@ -3,11 +3,11 @@
   "InternalName": "AIRedirector",
   "Name": "转发AI的输出到URA里",
   "Description": "转发AI的输出到URA里，需要修改版的简化过输出的AI",
-  "Changelog": "",
-  "Version": "1.0.0",
+  "Changelog": "添加种田杯的转发",
+  "Version": "1.1.0",
   "Dependencies": [],
   "Targets": [],
   "RepositoryUrl": "https://github.com/URA-Plugins/AIRedirector",
   "DownloadUrl": "https://gh.shuise.dev/github.com/URA-Plugins/AIRedirector/releases/latest/download/AIRedirector.zip",
-  "LastUpdate": "1751719983"
+  "LastUpdate": "1762215523"
 }

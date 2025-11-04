@@ -19,7 +19,7 @@ namespace AIRedirector
 
         public async Task UpdatePlugin(ProgressContext ctx)
         {
-            var progress = ctx.AddTask($"[{Name}] 更新");
+            var progress = ctx.AddTask($"[[{Name}]] 更新");
 
             using var client = new HttpClient();
             using var resp = await client.GetAsync($"https://api.github.com/repos/URA-Plugins/{Name}/releases/latest");
@@ -61,6 +61,10 @@ namespace AIRedirector
         [PluginSetting]
         public string UAF_Path { get; set; } = string.Empty;
         [PluginSetting]
+        public bool Cook { get; set; } = false;
+        [PluginSetting]
+        public string Cook_Path { get; set; } = string.Empty;
+        [PluginSetting]
         public bool Legend { get; set; } = false;
         [PluginSetting]
         public string Legend_Path { get; set; } = string.Empty;
@@ -101,6 +105,39 @@ namespace AIRedirector
                 };
                 Processes.Add(ScenarioType.UAF, uaf);
                 Trace.WriteLine($"UAF Path: {UAF_Path}");
+            }
+            if (Cook && File.Exists(Cook_Path))
+            {
+                var cook = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = Cook_Path,
+                        Arguments = string.Empty,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = Encoding.GetEncoding("gbk")
+                    }
+                };
+                cook.OutputDataReceived += (sender, e) =>
+                {
+                    if (UmamusumeResponseAnalyzer.UmamusumeResponseAnalyzer.Started && !string.IsNullOrEmpty(e.Data))
+                    {
+                        if (!string.IsNullOrEmpty(e.Data)
+                        || e.Data.Contains("手写逻辑")
+                        || e.Data.Contains("蒙特卡洛")
+                        || e.Data.Contains("运气指标")
+                        || (e.Data.Contains("速: ") && e.Data.Contains("耐: ") && e.Data.Contains("力: ") && e.Data.Contains("根: ") && e.Data.Contains("智: "))
+                        || e.Data.Contains("先做料理"))
+                        {
+                            Console.WriteLine(e.Data);
+                        }
+                    }
+                };
+                Processes.Add(ScenarioType.Cook, cook);
+                Trace.WriteLine($"Cook Path: {Cook_Path}");
             }
             if (Legend && File.Exists(Legend_Path))
             {
