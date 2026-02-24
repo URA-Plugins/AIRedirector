@@ -11,7 +11,6 @@ namespace AIRedirector
 {
     public class AIRedirector : IPlugin
     {
-        public Version Version => new(1, 0, 0);
         [PluginDescription("转发AI的输出到控制台")]
         public string Name => "AIRedirector";
         public string Author => "离披";
@@ -26,7 +25,7 @@ namespace AIRedirector
             var json = await resp.Content.ReadAsStringAsync();
             var jo = JObject.Parse(json);
 
-            var isLatest = ("v" + Version.ToString()).Equals("v" + jo["tag_name"]?.ToString());
+            var isLatest = ("v" + ((IPlugin)this).Version.ToString()).Equals("v" + jo["tag_name"]?.ToString());
             if (isLatest)
             {
                 progress.Increment(progress.MaxValue);
@@ -75,7 +74,13 @@ namespace AIRedirector
         {
             if (Directory.Exists("GameData"))
             {
-                foreach (var i in Directory.EnumerateFiles("GameData")) File.Delete(i);
+                foreach (var i in Directory.EnumerateFiles("GameData"))
+                {
+                    if (Path.GetFileName(i) != "thisTurn.json")
+                    {
+                        File.Delete(i);
+                    }
+                }
             }
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             if (UAF && File.Exists(UAF_Path))
