@@ -1,9 +1,9 @@
-﻿using Newtonsoft.Json.Linq;
-using Spectre.Console;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using Newtonsoft.Json.Linq;
+using Spectre.Console;
 using UmamusumeResponseAnalyzer;
 using UmamusumeResponseAnalyzer.Plugin;
 
@@ -64,22 +64,24 @@ namespace AIRedirector
         [PluginSetting]
         public string Cook_Path { get; set; } = string.Empty;
         [PluginSetting]
+        public bool Mecha { get; set; } = false;
+        [PluginSetting]
+        public string Mecha_Path { get; set; } = string.Empty;
+        [PluginSetting]
         public bool Legend { get; set; } = false;
         [PluginSetting]
         public string Legend_Path { get; set; } = string.Empty;
 
         readonly Dictionary<ScenarioType, Process> Processes = [];
+        ChildProcessManager? _childProcessManager;
 
         public void Initialize()
         {
-            if (Directory.Exists("GameData"))
+            foreach (var i in Directory.EnumerateFiles("./PluginData/SendGameStatusPlugin/", "*.json", SearchOption.AllDirectories))
             {
-                foreach (var i in Directory.EnumerateFiles("GameData"))
+                if (Path.GetFileName(i) == "thisTurn.json")
                 {
-                    if (Path.GetFileName(i) != "thisTurn.json")
-                    {
-                        File.Delete(i);
-                    }
+                    File.WriteAllText(i, "{}");
                 }
             }
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -144,6 +146,39 @@ namespace AIRedirector
                 Processes.Add(ScenarioType.Cook, cook);
                 Trace.WriteLine($"Cook Path: {Cook_Path}");
             }
+            if (Mecha && File.Exists(Mecha_Path))
+            {
+                var mecha = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = Mecha_Path,
+                        Arguments = string.Empty,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                mecha.OutputDataReceived += (sender, e) =>
+                {
+                    if (UmamusumeResponseAnalyzer.UmamusumeResponseAnalyzer.Started && !string.IsNullOrEmpty(e.Data))
+                    {
+                        if (!string.IsNullOrEmpty(e.Data) &&
+                        e.Data.Contains("手写逻辑")
+                        || e.Data.Contains("蒙特卡洛")
+                        || e.Data.Contains("运气指标")
+                        || (e.Data.Contains("速:") && e.Data.Contains("| 休息:"))
+                        || e.Data.Contains("开启齿轮")
+                        || e.Data.Contains("级胸"))
+                        {
+                            Console.WriteLine(e.Data);
+                        }
+                    }
+                };
+                Processes.Add(ScenarioType.Mecha, mecha);
+                Trace.WriteLine($"Mecha Path: {Mecha_Path}");
+            }
             if (Legend && File.Exists(Legend_Path))
             {
                 var legend = new Process
@@ -170,9 +205,11 @@ namespace AIRedirector
                 Trace.WriteLine($"Legend Path: {Legend_Path}");
             }
 
+            _childProcessManager = new ChildProcessManager();
             foreach (var (_, process) in Processes)
             {
                 process.Start();
+                _childProcessManager.AddProcess(process);
                 process.BeginOutputReadLine();
             }
         }
@@ -188,6 +225,8 @@ namespace AIRedirector
                 process.Dispose();
             }
             Processes.Clear();
+            _childProcessManager?.Dispose();
+            _childProcessManager = null;
         }
     }
 }
