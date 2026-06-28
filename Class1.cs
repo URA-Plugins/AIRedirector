@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
@@ -181,6 +181,7 @@ namespace AIRedirector
             }
             if (Legend && File.Exists(Legend_Path))
             {
+                var LegendDir = Path.GetDirectoryName(Path.GetFullPath(Legend_Path));
                 var legend = new Process
                 {
                     StartInfo = new ProcessStartInfo
@@ -191,14 +192,37 @@ namespace AIRedirector
                         RedirectStandardError = true,
                         UseShellExecute = false,
                         CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.GetEncoding("gbk")
+                        WorkingDirectory = LegendDir,
+                        StandardOutputEncoding = Encoding.GetEncoding("utf-8")
                     }
                 };
+
                 legend.OutputDataReceived += (sender, e) =>
                 {
                     if (UmamusumeResponseAnalyzer.UmamusumeResponseAnalyzer.Started && !string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine(e.Data);
+                        if (e.Data.Contains("O")) return;//丑陋的补丁，防止AI的当前心得内容回显
+                        if (!string.IsNullOrEmpty(e.Data) &&
+                         e.Data.Contains("速 :")
+                         || e.Data.Contains("耐 :")
+                         || e.Data.Contains("力 :")
+                         || e.Data.Contains("根 :")
+                         || e.Data.Contains("智 :")
+                         || e.Data.Contains("休息 :")
+                         || e.Data.Contains("AI建议")
+                         || e.Data.Contains("运气指标")
+                         || e.Data.Contains("评分预测")
+                         || e.Data.Contains("选择心得中：")
+                         || (e.Data.Contains("(红") || e.Data.Contains("(绿") || e.Data.Contains("(蓝")) 
+                         || e.Data.Contains("色第")
+                        //(红
+                        || (!e.Data.Contains("未知错误")&&e.Data.Contains("读取游戏信息json出错"))
+                        || e.Data.Contains("AI版本")
+                        ) 
+                        {
+                            Console.WriteLine(e.Data);
+                        }
+                        //Console.WriteLine(e.Data);
                     }
                 };
                 Processes.Add(ScenarioType.Legend, legend);
@@ -211,6 +235,7 @@ namespace AIRedirector
                 process.Start();
                 _childProcessManager.AddProcess(process);
                 process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
             }
         }
 
