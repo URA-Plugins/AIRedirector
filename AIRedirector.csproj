@@ -1,25 +1,30 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <IsUraPlugin>true</IsUraPlugin>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RunPostBuildEvent>Always</RunPostBuildEvent>
     <Version>1.1.0</Version>
+
+    <PluginDisplayName>转发AI的输出到URA里</PluginDisplayName>
+    <PluginAuthor>离披</PluginAuthor>
+    <PluginDescription>转发AI的输出到URA里，需要修改版的简化过输出的AI</PluginDescription>
+    <PluginChangelog>添加种田杯的转发</PluginChangelog>
+    <PluginRepositoryUrl>https://github.com/URA-Plugins/AIRedirector</PluginRepositoryUrl>
+    <PluginDependencies>LegendScenarioAnalyzer</PluginDependencies>
   </PropertyGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy /Y &quot;$(TargetPath)&quot; &quot;%25localappdata%25/UmamusumeResponseAnalyzer/Plugins/AIRedirector/&quot;" />
-  </Target>
-
   <ItemGroup>
-    <ProjectReference Include="..\..\UmamusumeResponseAnalyzer\UmamusumeResponseAnalyzer\UmamusumeResponseAnalyzer.csproj" />
+    <InternalsVisibleTo Include="AIRedirectorSmoke" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="manifest.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LegendScenarioAnalyzer\LegendScenarioAnalyzer.csproj" Private="false" />
   </ItemGroup>
 
 </Project>
