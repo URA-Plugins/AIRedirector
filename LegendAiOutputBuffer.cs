@@ -19,6 +19,24 @@ internal sealed class LegendAiOutputBuffer
     static readonly Regex RecommendationSelectionPattern = new(
         @"^选(?<color>蓝色|绿色|红色)第\s*(?<ordinal>\d+)\s*个\b",
         RegexOptions.Compiled);
+    static readonly HashSet<string> ImportantRecommendationActions = new(StringComparer.Ordinal)
+    {
+        "休息",
+        "外出",
+        "比赛",
+        "普通外出",
+        "团队外出1",
+        "团队外出2",
+        "团队外出3",
+        "团队外出4选蓝",
+        "团队外出4选绿",
+        "团队外出4选红",
+        "团队外出5",
+        "选红",
+        "选绿",
+        "选蓝",
+        "不选"
+    };
 
     readonly Dictionary<LegendTrain, string> trainingScores = [];
     readonly Dictionary<string, string> actionScores = new(StringComparer.Ordinal);
@@ -100,7 +118,7 @@ internal sealed class LegendAiOutputBuffer
 
             foreach (var summary in summaries)
                 display.Extra.AddText(summary);
-        });
+        }, switchToWorkspace: false);
 
     void ApplyTrainingDisplay(LegendTrainingDisplayContext context, LegendTrainingDisplayEditor display)
     {
@@ -137,7 +155,7 @@ internal sealed class LegendAiOutputBuffer
             }
             else
             {
-                display.Extra.AddMarkup($"[yellow]{escaped}[/]");
+                AddRecommendationFallback(display, recommendationLine);
             }
         }
     }
@@ -163,7 +181,7 @@ internal sealed class LegendAiOutputBuffer
                 return;
             }
 
-            display.Extra.AddMarkup($"[yellow]{escaped}[/]");
+            AddRecommendationFallback(display, recommendationLine);
         }
     }
 
@@ -351,6 +369,27 @@ internal sealed class LegendAiOutputBuffer
         => line.Contains("运气指标", StringComparison.Ordinal)
             || line.Contains("评分预测", StringComparison.Ordinal)
             || line.Contains("比赛亏损", StringComparison.Ordinal);
+
+    static void AddRecommendationFallback(
+        LegendTrainingDisplayEditor display,
+        string recommendationLine)
+    {
+        var escaped = Markup.Escape(recommendationLine);
+        if (IsImportantRecommendation(recommendationLine))
+            display.Important.AddMarkup($"[yellow]{escaped}[/]");
+        else
+            display.Extra.AddMarkup($"[yellow]{escaped}[/]");
+    }
+
+    static bool IsImportantRecommendation(string recommendationLine)
+    {
+        const string prefix = "AI建议：";
+        var body = recommendationLine.StartsWith(prefix, StringComparison.Ordinal)
+            ? recommendationLine[prefix.Length..].TrimStart()
+            : recommendationLine.TrimStart();
+
+        return ImportantRecommendationActions.Contains(body);
+    }
 
     void AddSummary(string line)
     {
