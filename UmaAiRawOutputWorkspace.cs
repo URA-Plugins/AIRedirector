@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -49,7 +48,7 @@ internal sealed class UmaAiRawOutputWorkspace
                 lines.RemoveRange(0, lines.Count - MaxLines);
             ClampScrollOffset();
 
-            SetPanelWithoutSwitchingWorkspace(output, target, Render());
+            output.SetPanel(target, PanelKey, PanelTitle, Render(), fullBleed: true, switchToWorkspace: false);
         }
     }
 
@@ -78,7 +77,7 @@ internal sealed class UmaAiRawOutputWorkspace
 
             scrollOffsetFromBottom += delta;
             ClampScrollOffset();
-            SetPanelWithoutSwitchingWorkspace(output, target, Render());
+            output.SetPanel(target, PanelKey, PanelTitle, Render(), fullBleed: true, switchToWorkspace: false);
             return Task.CompletedTask;
         }
     }
@@ -91,7 +90,7 @@ internal sealed class UmaAiRawOutputWorkspace
                 return Task.CompletedTask;
 
             scrollOffsetFromBottom = MaxScrollOffset();
-            SetPanelWithoutSwitchingWorkspace(output, target, Render());
+            output.SetPanel(target, PanelKey, PanelTitle, Render(), fullBleed: true, switchToWorkspace: false);
             return Task.CompletedTask;
         }
     }
@@ -104,7 +103,7 @@ internal sealed class UmaAiRawOutputWorkspace
                 return Task.CompletedTask;
 
             scrollOffsetFromBottom = 0;
-            SetPanelWithoutSwitchingWorkspace(output, target, Render());
+            output.SetPanel(target, PanelKey, PanelTitle, Render(), fullBleed: true, switchToWorkspace: false);
             return Task.CompletedTask;
         }
     }
@@ -219,26 +218,4 @@ internal sealed class UmaAiRawOutputWorkspace
         }
     }
 
-    static void SetPanelWithoutSwitchingWorkspace(
-        ILiveDisplayOutput output,
-        LiveDisplayWorkspace workspace,
-        IRenderable content)
-    {
-        var method = output.GetType().GetMethod(
-            nameof(ILiveDisplayOutput.SetPanel),
-            BindingFlags.Instance | BindingFlags.Public,
-            binder: null,
-            [
-                typeof(LiveDisplayWorkspace),
-                typeof(string),
-                typeof(string),
-                typeof(IRenderable),
-                typeof(bool),
-                typeof(bool)
-            ],
-            modifiers: null)
-            ?? throw new NotSupportedException("当前 LiveDisplay output 实现不支持 switchToWorkspace: false。");
-
-        method.Invoke(output, [workspace, PanelKey, PanelTitle, content, true, false]);
-    }
 }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace AIRedirector;
 
@@ -19,8 +20,8 @@ internal static class UmaAiProcessStartInfo
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
-            StandardOutputEncoding = UmaAiProcessOutput.StdoutEncoding,
-            StandardErrorEncoding = UmaAiProcessOutput.StdoutEncoding
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
         };
     }
 }

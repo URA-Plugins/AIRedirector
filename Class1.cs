@@ -124,12 +124,11 @@ namespace AIRedirector
                     rawOutput.AppendLine(e.Data);
                     if (gameStarted && !string.IsNullOrEmpty(e.Data))
                     {
-                        if (!string.IsNullOrEmpty(e.Data) &&
-                        e.Data.Contains("手写逻辑")
-                        || e.Data.Contains("蒙特卡洛")
-                        || e.Data.Contains("运气指标")
-                        || (e.Data.Contains("速:") && e.Data.Contains("| 休息:"))
-                        || e.Data.Contains("先做料理"))
+                        if (e.Data.Contains("手写逻辑")
+                            || e.Data.Contains("蒙特卡洛")
+                            || e.Data.Contains("运气指标")
+                            || (e.Data.Contains("速:") && e.Data.Contains("| 休息:"))
+                            || e.Data.Contains("先做料理"))
                         {
                             Console.WriteLine(e.Data);
                         }
@@ -149,13 +148,12 @@ namespace AIRedirector
                     rawOutput.AppendLine(e.Data);
                     if (gameStarted && !string.IsNullOrEmpty(e.Data))
                     {
-                        if (!string.IsNullOrEmpty(e.Data) &&
-                        e.Data.Contains("手写逻辑")
-                        || e.Data.Contains("蒙特卡洛")
-                        || e.Data.Contains("运气指标")
-                        || (e.Data.Contains("速:") && e.Data.Contains("| 休息:"))
-                        || e.Data.Contains("开启齿轮")
-                        || e.Data.Contains("级胸"))
+                        if (e.Data.Contains("手写逻辑")
+                            || e.Data.Contains("蒙特卡洛")
+                            || e.Data.Contains("运气指标")
+                            || (e.Data.Contains("速:") && e.Data.Contains("| 休息:"))
+                            || e.Data.Contains("开启齿轮")
+                            || e.Data.Contains("级胸"))
                         {
                             Console.WriteLine(e.Data);
                         }
