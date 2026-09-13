@@ -13,7 +13,7 @@
     <PluginDescription>转发AI的输出到URA里，需要修改版的简化过输出的AI</PluginDescription>
     <PluginChangelog>添加种田杯的转发</PluginChangelog>
     <PluginRepositoryUrl>https://github.com/URA-Plugins/AIRedirector</PluginRepositoryUrl>
-    <PluginDependencies>LegendScenarioAnalyzer</PluginDependencies>
+    <PluginDependencies>LegendScenarioAnalyzer,RamenScenarioAnalyzer</PluginDependencies>
   </PropertyGroup>
 
   <ItemGroup>
