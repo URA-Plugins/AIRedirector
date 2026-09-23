@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text;
 using AIRedirector;
@@ -18,6 +19,16 @@ using UmamusumeResponseAnalyzer.Plugin;
 using LegendPlugin = LegendScenarioAnalyzer.LegendScenarioAnalyzer;
 using TAttribute = Terminal.Gui.Drawing.Attribute;
 
+if (Environment.GetEnvironmentVariable("URA_AIR_SMOKE_CHILD_PID") is { } childPidPath)
+{
+    File.WriteAllText(childPidPath, Environment.ProcessId.ToString());
+    Console.OutputEncoding = Encoding.UTF8;
+    Console.WriteLine("AIR smoke 子进程输出");
+    Console.Out.Flush();
+    Thread.Sleep(System.Threading.Timeout.Infinite);
+    return;
+}
+
 AssertProjectMetadata();
 TestUmaAiStdoutEncodingUsesUtf8CodePage65001();
 TestUmaAiProcessStartInfoUsesExecutableDirectory();
@@ -25,6 +36,7 @@ await TestConfigPromptRunsOnOwnerWithoutOuterRunnable();
 await TestConfigMenuUsesNativeControlsAndSavesDraft();
 await TestConfigMenuCancellationLeavesFileUnchanged();
 using var ui = new WorkspaceSmokeSession();
+await TestProcessOutputAndShutdown(ui);
 TestRawUmaAiOutputWorkspaceRendersStdoutWithoutTerminalControlSequences(ui);
 TestRawUmaAiOutputWorkspaceRendersFullBufferAndDisposesPanel(ui);
 await TestLegendTrainingOutputPatchesCurrentWorkspaceAndClearsStaleOutput(ui);
@@ -32,6 +44,53 @@ await TestLegendNonTrainingRecommendationsRenderInImportant(ui);
 await TestLegendBuffSelectionOutputUsesObtainableBuffContext(ui);
 
 Console.WriteLine("PASS AIRedirector smoke");
+
+static async Task TestProcessOutputAndShutdown(WorkspaceSmokeSession ui)
+{
+    using var directory = new TempCurrentDirectory("AIRedirector-process-lifecycle");
+    var dataDirectory = Path.Combine("PluginData", "AIRedirector");
+    Directory.CreateDirectory(dataDirectory);
+    new AIRedirectorConfig
+    {
+        UAF = true,
+        UAF_Path = Path.Combine(AppContext.BaseDirectory, "AIRedirectorSmoke.exe"),
+    }.Save(Path.Combine(dataDirectory, "settings.json"));
+    var pidPath = Path.GetFullPath("child.pid");
+    var previousChildMode = Environment.GetEnvironmentVariable("URA_AIR_SMOKE_CHILD_PID");
+    IPlugin plugin = new AIRedirector.AIRedirector();
+    Process? child = null;
+    var target = Workspace.Create("AIRedirector");
+    try
+    {
+        Environment.SetEnvironmentVariable("URA_AIR_SMOKE_CHILD_PID", pidPath);
+        plugin.Initialize(new RecordingPluginContext(ui.Application));
+        Environment.SetEnvironmentVariable("URA_AIR_SMOKE_CHILD_PID", previousChildMode);
+        await plugin.StartAsync();
+        target.SwitchTo();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!ui.CaptureScreen().Contains("AIR smoke 子进程输出", StringComparison.Ordinal))
+            await Task.Delay(10, timeout.Token);
+        child = Process.GetProcessById(int.Parse(File.ReadAllText(pidPath)));
+        if (child.HasExited)
+            throw new InvalidOperationException("AIR smoke child exited before plugin shutdown.");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable("URA_AIR_SMOKE_CHILD_PID", previousChildMode);
+        await plugin.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
+    }
+    using (child)
+    {
+        if (child is null || !child.HasExited)
+            throw new InvalidOperationException("AIR DisposeAsync did not terminate its child process.");
+    }
+    var afterShutdown = ui.CaptureScreen();
+    if (afterShutdown.Contains("AIR smoke 子进程输出", StringComparison.Ordinal)
+        || afterShutdown.Contains("UmaAI.exe 原始输出", StringComparison.Ordinal))
+        throw new InvalidOperationException("AIR DisposeAsync left its process output panel visible.");
+    ui.Bootstrap.SwitchTo();
+    Console.WriteLine("PASS AIRedirector child stdout, async shutdown, process exit and panel cleanup");
+}
 
 static void AssertProjectMetadata()
 {
@@ -171,7 +230,7 @@ static async Task TestConfigPromptRunsOnOwnerWithoutOuterRunnable()
     }
     finally
     {
-        plugin.Dispose();
+        await plugin.DisposeAsync();
         Directory.SetCurrentDirectory(originalCwd);
         Directory.Delete(workspace, recursive: true);
     }
@@ -267,7 +326,7 @@ static async Task TestConfigMenuUsesNativeControlsAndSavesDraft()
     }
     finally
     {
-        plugin.Dispose();
+        await plugin.DisposeAsync();
         Directory.SetCurrentDirectory(originalCwd);
         Directory.Delete(workspace, recursive: true);
     }
@@ -363,7 +422,7 @@ static async Task TestConfigMenuCancellationLeavesFileUnchanged()
     }
     finally
     {
-        plugin.Dispose();
+        await plugin.DisposeAsync();
         Directory.SetCurrentDirectory(originalCwd);
         Directory.Delete(workspace, recursive: true);
     }
@@ -455,7 +514,7 @@ static async ValueTask TestLegendTrainingOutputPatchesCurrentWorkspaceAndClearsS
     }
     finally
     {
-        plugin.Dispose();
+        await plugin.DisposeAsync();
     }
 }
 
@@ -510,7 +569,7 @@ static async ValueTask TestLegendNonTrainingRecommendationsRenderInImportant(Wor
         }
         finally
         {
-            plugin.Dispose();
+            await plugin.DisposeAsync();
         }
     }
 }
@@ -596,7 +655,7 @@ static async ValueTask TestLegendBuffSelectionOutputUsesObtainableBuffContext(Wo
     }
     finally
     {
-        plugin.Dispose();
+        await plugin.DisposeAsync();
         Directory.SetCurrentDirectory(originalCwd);
     }
 }
@@ -747,18 +806,11 @@ static int FirstColumnOfLineContaining(string rendered, string text)
 sealed class RecordingPluginContext(IApplication application) : IPluginContext
 {
     public IApplication Application { get; } = application;
-    public IPluginHostEvents Events { get; } = new ThrowingPluginHostEvents();
     public IPluginAnalyzerRegistry Analyzers { get; } = new RecordingPluginAnalyzerRegistry();
     public bool IsPluginAvailable(string internalName) => false;
 
-    public void RunBackground(Func<CancellationToken, ValueTask> handler)
-        => throw new NotSupportedException("AIRedirector smoke does not start background work through this context.");
-}
-
-sealed class ThrowingPluginHostEvents : IPluginHostEvents
-{
-    public void OnStarted(Func<CancellationToken, ValueTask> handler)
-        => throw new NotSupportedException("AIRedirector smoke does not use host events.");
+    public void ReportBackgroundFailure(Exception error)
+        => throw new InvalidOperationException("AIRedirector background work failed.", error);
 }
 
 sealed class RecordingPluginAnalyzerRegistry : IPluginAnalyzerRegistry

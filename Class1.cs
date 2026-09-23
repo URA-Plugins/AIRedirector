@@ -28,82 +28,66 @@ namespace AIRedirector
         AIRedirectorConfig config = new();
         ILegendAiOutputBridge? legendOutput;
         readonly UmaAiRawOutputWorkspace rawOutput = new();
+        readonly CancellationTokenSource outputCancellation = new();
+        Task? outputTask;
         bool gameStarted;
 
         string ConfigPath => Path.Combine(DataDirectory, "settings.json");
 
         public void Initialize(IPluginContext context)
         {
-            try
+            Directory.CreateDirectory(DataDirectory);
+            config = AIRedirectorConfig.Load(ConfigPath);
+            if (context.IsPluginAvailable("LegendScenarioAnalyzer"))
             {
-                Directory.CreateDirectory(DataDirectory);
-                config = AIRedirectorConfig.Load(ConfigPath);
-                context.Events.OnStarted(_ =>
-                {
-                    Volatile.Write(ref gameStarted, true);
-                    return ValueTask.CompletedTask;
-                });
-                context.RunBackground(ConsumeProcessOutputAsync);
-                if (context.IsPluginAvailable("LegendScenarioAnalyzer"))
-                {
-                    legendOutput = CreateLegendOutputBridge();
-                    RegisterLegendDisplayIdAnalyzers(context);
-                }
+                legendOutput = CreateLegendOutputBridge();
+                RegisterLegendDisplayIdAnalyzers(context);
+            }
 
-                var sendGameStatusDataDirectory = Path.Combine("PluginData", "SendGameStatusPlugin");
-                if (Directory.Exists(sendGameStatusDataDirectory))
+            var sendGameStatusDataDirectory = Path.Combine("PluginData", "SendGameStatusPlugin");
+            if (Directory.Exists(sendGameStatusDataDirectory))
+            {
+                foreach (var i in Directory.EnumerateFiles(sendGameStatusDataDirectory, "*.json", SearchOption.AllDirectories))
                 {
-                    foreach (var i in Directory.EnumerateFiles(sendGameStatusDataDirectory, "*.json", SearchOption.AllDirectories))
+                    if (Path.GetFileName(i) == "thisTurn.json")
                     {
-                        if (Path.GetFileName(i) == "thisTurn.json")
-                        {
-                            File.WriteAllText(i, "{}");
-                        }
+                        File.WriteAllText(i, "{}");
                     }
                 }
-
-                ValidateConfiguredPath("UAF", config.UAF, config.UAF_Path);
-                ValidateConfiguredPath("Cook", config.Cook, config.Cook_Path);
-                ValidateConfiguredPath("Mecha", config.Mecha, config.Mecha_Path);
-                ValidateConfiguredPath("Legend", config.Legend, config.Legend_Path);
-
-                if (config.UAF)
-                    Trace.WriteLine($"UAF Path: {config.UAF_Path}");
-                if (config.Cook)
-                    Trace.WriteLine($"Cook Path: {config.Cook_Path}");
-                if (config.Mecha)
-                    Trace.WriteLine($"Mecha Path: {config.Mecha_Path}");
-                if (config.Legend)
-                    Trace.WriteLine($"Legend Path: {config.Legend_Path}");
-
-                var manager = new ChildProcessManager();
-                _childProcessManager = manager;
-
-                if (config.UAF)
-                    StartProcess(manager, "UAF", config.UAF_Path);
-                if (config.Cook)
-                    StartProcess(manager, "Cook", config.Cook_Path);
-                if (config.Mecha)
-                    StartProcess(manager, "Mecha", config.Mecha_Path);
-                if (config.Legend)
-                    StartProcess(manager, "Legend", config.Legend_Path, applyToLegend: true);
             }
-            catch (Exception initializationException)
-            {
-                try
-                {
-                    Dispose();
-                }
-                catch (Exception cleanupException)
-                {
-                    throw new AggregateException(
-                        "AIRedirector 初始化与回滚均失败。",
-                        initializationException,
-                        cleanupException);
-                }
 
-                throw;
-            }
+            ValidateConfiguredPath("UAF", config.UAF, config.UAF_Path);
+            ValidateConfiguredPath("Cook", config.Cook, config.Cook_Path);
+            ValidateConfiguredPath("Mecha", config.Mecha, config.Mecha_Path);
+            ValidateConfiguredPath("Legend", config.Legend, config.Legend_Path);
+
+            if (config.UAF)
+                Trace.WriteLine($"UAF Path: {config.UAF_Path}");
+            if (config.Cook)
+                Trace.WriteLine($"Cook Path: {config.Cook_Path}");
+            if (config.Mecha)
+                Trace.WriteLine($"Mecha Path: {config.Mecha_Path}");
+            if (config.Legend)
+                Trace.WriteLine($"Legend Path: {config.Legend_Path}");
+
+            var manager = new ChildProcessManager();
+            _childProcessManager = manager;
+
+            if (config.UAF)
+                StartProcess(manager, "UAF", config.UAF_Path);
+            if (config.Cook)
+                StartProcess(manager, "Cook", config.Cook_Path);
+            if (config.Mecha)
+                StartProcess(manager, "Mecha", config.Mecha_Path);
+            if (config.Legend)
+                StartProcess(manager, "Legend", config.Legend_Path, applyToLegend: true);
+            outputTask = Task.Run(() => ConsumeProcessOutputAsync(context, outputCancellation.Token));
+        }
+
+        public ValueTask StartAsync(CancellationToken cancellationToken = default)
+        {
+            Volatile.Write(ref gameStarted, true);
+            return ValueTask.CompletedTask;
         }
 
         void StartProcess(
@@ -131,7 +115,7 @@ namespace AIRedirector
         void HandleOutput(string? line, bool applyToLegend = false)
             => processOutput.Writer.TryWrite(new(line, applyToLegend));
 
-        async ValueTask ConsumeProcessOutputAsync(CancellationToken cancellationToken)
+        async Task ConsumeProcessOutputAsync(IPluginContext context, CancellationToken cancellationToken)
         {
             try
             {
@@ -151,6 +135,10 @@ namespace AIRedirector
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+            }
+            catch (Exception error)
+            {
+                context.ReportBackgroundFailure(error);
             }
             finally
             {
@@ -395,16 +383,9 @@ namespace AIRedirector
             EditLegend,
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             _ = processOutput.Writer.TryComplete();
-            var legendBridge = Interlocked.Exchange(ref legendOutput, null);
-            var started = startedProcesses.ToArray();
-            startedProcesses.Clear();
-            var created = createdProcesses.ToArray();
-            createdProcesses.Clear();
-            var manager = _childProcessManager;
-            _childProcessManager = null;
             var errors = new List<Exception>();
             bool Capture(Action action)
             {
@@ -420,6 +401,24 @@ namespace AIRedirector
                 }
             }
 
+            Capture(outputCancellation.Cancel);
+            try
+            {
+                if (outputTask is not null)
+                    await outputTask.ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                errors.Add(error);
+            }
+            Capture(outputCancellation.Dispose);
+            var legendBridge = Interlocked.Exchange(ref legendOutput, null);
+            var started = startedProcesses.ToArray();
+            startedProcesses.Clear();
+            var created = createdProcesses.ToArray();
+            createdProcesses.Clear();
+            var manager = _childProcessManager;
+            _childProcessManager = null;
             var managerDisposed = manager is null;
             try
             {

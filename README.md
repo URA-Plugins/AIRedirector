@@ -19,7 +19,7 @@ git -c core.longpaths=true submodule update --init --recursive
 dotnet build .\AIRedirector.csproj -c Release -m:1 -p:RuntimeIdentifier=win-x64 -p:SelfContained=false -p:PlatformTarget=AnyCPU -p:DeployUraPluginToLocalAppDataOnBuild=false
 ```
 
-Host-dependent smoke 位于 `tests/AIRedirectorSmoke`。
+Host-dependent smoke 位于 `tests/AIRedirectorSmoke`，覆盖配置、Legend 输出、真实子进程 stdout，以及 `DisposeAsync` 后的子进程退出和面板清理。
 
 ## 验证与发布
 
