@@ -17,10 +17,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="AIRedirectorSmoke" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Terminal.Gui" Version="2.5.0" />
   </ItemGroup>
 
