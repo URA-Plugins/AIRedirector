@@ -21,6 +21,10 @@ dotnet build .\AIRedirector.csproj -c Release -m:1 -p:RuntimeIdentifier=win-x64 
 
 Host-dependent smoke 位于 `tests/AIRedirectorSmoke`，覆盖配置、Legend 输出、真实子进程 stdout，以及 `DisposeAsync` 后的子进程退出和面板清理。
 
+默认 smoke 执行本仓发布边界检查、闲置生命周期、配置与子进程检查，并从 fresh ZIP 实际加载 AIR 与 Legend，核对目标育成更新、共享加载上下文和停机清理。测试工具源码由 `tests/Support/` 持有。
+
+本地运行默认 smoke 前，将 `URA_PLUGIN_SMOKE_PACKAGE_ROOT` 设为本轮 Release 构建 ZIP 所在的绝对目录；本仓及上述依赖必须各有唯一 ZIP。CI 使用共用 workflow 的 `GITHUB_WORKSPACE/artifacts`，缺包或重复包使测试失败。
+
 ## 验证与发布
 
 在 Windows 仓库根执行 `act workflow_dispatch --artifact-server-path "$env:TEMP/ura-act-artifacts"`。本地与 GitHub 使用同一份 workflow；版本 tag 触发 GitHub Release 发布。环境要求、共用 workflow 本地映射和发布规则见 [URA plugin workflows](https://github.com/URA-Plugins/.github/blob/v1/README.md)。

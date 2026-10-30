@@ -24,3 +24,5 @@ dotnet build .\AIRedirector.csproj -c Release -m:1 -p:RuntimeIdentifier=win-x64 
 - Legend 类型只能在确认 `IsPluginAvailable("LegendScenarioAnalyzer")` 后创建的桥接中使用；不得复制依赖或增加备用加载路径。
 - 原始 stdout 先于 Legend 修改发布；保留单消费者顺序、异常传播、有限等待和完整资源清理。
 - 不提交运行配置、插件包、捕获数据、凭据或本机路径。
+
+测试支持源码保存在本仓 `tests/Support/`；正常 smoke 入口执行 `RepositoryChecks.Run()`，构建时通过 `UraTestHostRoot` 引用与 SDK 匹配的 Host 运行时。

@@ -29,6 +29,9 @@ if (Environment.GetEnvironmentVariable("URA_AIR_SMOKE_CHILD_PID") is { } childPi
     return;
 }
 
+RepositoryChecks.Run();
+Environment.SetEnvironmentVariable("DisableRealDriverIO", "1");
+
 AssertProjectMetadata();
 TestUmaAiStdoutEncodingUsesUtf8CodePage65001();
 TestUmaAiProcessStartInfoUsesExecutableDirectory();
@@ -36,12 +39,15 @@ await TestConfigPromptRunsOnOwnerWithoutOuterRunnable();
 await TestConfigMenuUsesNativeControlsAndSavesDraft();
 await TestConfigMenuCancellationLeavesFileUnchanged();
 using var ui = new WorkspaceSmokeSession();
+PluginLifecycleSmoke.Run(ui);
 await TestProcessOutputAndShutdown(ui);
 TestRawUmaAiOutputWorkspaceRendersStdoutWithoutTerminalControlSequences(ui);
 TestRawUmaAiOutputWorkspaceRendersFullBufferAndDisposesPanel(ui);
 await TestLegendTrainingOutputPatchesCurrentWorkspaceAndClearsStaleOutput(ui);
 await TestLegendNonTrainingRecommendationsRenderInImportant(ui);
 await TestLegendBuffSelectionOutputUsesObtainableBuffContext(ui);
+
+await PackageLoadSmoke.RunAsync(ui);
 
 Console.WriteLine("PASS AIRedirector smoke");
 
